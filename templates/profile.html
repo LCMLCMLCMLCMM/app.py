@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ request.cookies.get('theme', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile_user.username }} 的个人主页 - 我的个人博客</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .profile-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .avatar-container {
+            flex-shrink: 0;
+        }
+        
+        .avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ddd;
+        }
+        
+        .profile-info {
+            flex: 1;
+        }
+        
+        .profile-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .contact-list {
+            margin-top: 20px;
+        }
+        
+        .contact-item {
+            margin-bottom: 10px;
+        }
+        
+        .posts-section {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">我的个人博客</a> - {{ profile_user.username }} 的个人主页</h1>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <span>欢迎, {{ session.username }}!</span>
+                    {% if session.role == 'master' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">站长面板</a>
+                    {% elif session.role == 'admin' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">管理员面板</a>
+                    {% endif %}
+                    <a href="{{ url_for('user_profile') }}" class="btn">个人资料</a>
+                    <a href="{{ url_for('logout') }}" class="btn">登出</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn">登录</a>
+                    <a href="{{ url_for('register') }}" class="btn">注册</a>
+                {% endif %}
+                <button class="theme-toggle" id="themeToggle">
+                    {% if request.cookies.get('theme', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="card">
+            <div class="profile-header">
+                <div class="avatar-container">
+                    {% if profile_user.avatar_url %}
+                        <img src="{{ profile_user.avatar_url }}" alt="{{ profile_user.username }}的头像" class="avatar">
+                    {% else %}
+                        <div class="avatar" style="background-color: #ddd; display: flex; align-items: center; justify-content: center; font-size: 48px; color: #999;">
+                            {{ profile_user.username[0] }}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="profile-info">
+                    <h2>{{ profile_user.username }}</h2>
+                    <p>
+                        {% if profile_user.role == 'master' %}
+                            站长
+                        {% elif profile_user.role == 'admin' %}
+                            管理员
+                        {% else %}
+                            普通用户
+                        {% endif %}
+                    </p>
+                    
+                    {% if profile_user.signature %}
+                        <p><strong>个性签名：</strong>{{ profile_user.signature }}</p>
+                    {% endif %}
+                    
+                    {% if session.user_id and session.user_id != profile_user.id %}
+                    <div class="profile-actions">
+                        <!-- 关注/取消关注按钮 -->
+                        {% if is_following %}
+                            <form action="{{ url_for('unfollow_user', user_id=profile_user.id) }}" method="POST">
+                                <button type="submit" class="btn btn-secondary">取消关注</button>
+                            </form>
+                        {% else %}
+                            <form action="{{ url_for('follow_user', user_id=profile_user.id) }}" method="POST">
+                                <button type="submit" class="btn">关注</button>
+                            </form>
+                        {% endif %}
+                        
+                        <!-- 好友申请按钮 -->
+                        {% if friendship_status == 'none' %}
+                            <form action="{{ url_for('send_friend_request', user_id=profile_user.id) }}" method="POST">
+                                <button type="submit" class="btn">发送好友申请</button>
+                            </form>
+                        {% elif friendship_status == 'pending' %}
+                            {% if friendship_direction == 'incoming' %}
+                                <form action="{{ url_for('accept_friend_request', user_id=profile_user.id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn">接受好友申请</button>
+                                </form>
+                                <form action="{{ url_for('reject_friend_request', user_id=profile_user.id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-secondary">拒绝</button>
+                                </form>
+                            {% else %}
+                                <button class="btn btn-secondary" disabled>好友申请待处理</button>
+                            {% endif %}
+                        {% elif friendship_status == 'accepted' %}
+                            <button class="btn btn-success" disabled>已是好友</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if profile_user.contact_info %}
+            <div class="contact-list">
+                <h3>联系方式</h3>
+                {% set contact_info = profile_user.contact_info|from_json %}
+                {% for key, value in contact_info.items() %}
+                    {% if value %}
+                    <div class="contact-item">
+                        <strong>
+                            {% if key == 'bilibili' %}B站:{% elif key == 'phone' %}电话:{% elif key == 'email' %}邮箱:{% elif key == 'qq' %}QQ:{% elif key == 'wechat' %}微信:{% elif key == 'weibo' %}微博:{% elif key == 'telegram' %}Telegram:{% elif key == 'youtube' %}YouTube:{% elif key == 'twitter' %}X(Twitter):{% elif key == 'xiaohongshu' %}小红书:{% elif key == 'douyin' %}抖音:{% else %}{{ key }}:{% endif %}
+                        </strong>
+                        {{ value }}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="card posts-section">
+            <h3>{{ profile_user.username }} 发布的文章</h3>
+            {% if user_posts %}
+                {% for post in user_posts %}
+                <div class="post-summary">
+                    <h4><a href="{{ url_for('post', post_id=post.id) }}">{{ post.title }}</a></h4>
+                    <p class="post-meta">发布时间: {{ post.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p>{{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>该用户尚未发布任何文章。</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // 主题切换功能
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            fetch('/toggle_dark_mode')
+                .then(response => response.redirected ? window.location.href = response.url : window.location.reload());
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

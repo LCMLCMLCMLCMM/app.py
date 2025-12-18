@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ request.cookies.get('theme', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ post.title }} - LCM's Blog博客</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .reply-form {
+            margin-left: 30px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .reply-link {
+            cursor: pointer;
+            color: #4361ee;
+            font-size: 0.9em;
+        }
+        
+        .reply-link:hover {
+            text-decoration: underline;
+        }
+        
+        .comment-reply {
+            margin-left: 30px;
+            border-left: 2px solid #eee;
+            padding-left: 15px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">我的个人博客</a></h1>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <span>欢迎, {{ session.username }}!</span>
+                    {% if session.role == 'master' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">站长面板</a>
+                    {% elif session.role == 'admin' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">管理员面板</a>
+                    {% endif %}
+                    <a href="{{ url_for('user_profile') }}" class="btn">个人资料</a>
+                    <a href="{{ url_for('logout') }}" class="btn">登出</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn">登录</a>
+                    <a href="{{ url_for('register') }}" class="btn">注册</a>
+                {% endif %}
+                <button class="theme-toggle" id="themeToggle">
+                    {% if request.cookies.get('theme', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="card post">
+            <h1 class="post-title">{{ post.title }}</h1>
+            <div class="post-meta">
+                作者: <a href="{{ url_for('profile', user_id=post.author.id) }}">{{ post.author.username }}</a> | 
+                发布时间: {{ post.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% if post.date_posted != post.date_posted %}
+                    | 更新时间: {{ post.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% endif %}
+            </div>
+            <div class="post-content">
+                {{ post.content|replace('\n', '<br>')|safe }}
+            </div>
+            
+            {% if session.user_id and (session.user_id == post.author_id or session.role in ['admin', 'master']) %}
+                <div class="actions">
+                    <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn">编辑文章</a>
+                    <form action="{{ url_for('delete_post', post_id=post.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('确定要删除这篇文章吗？')">删除文章</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h3>评论 ({{ post.comments|selectattr('parent_id', 'none')|list|length }})</h3>
+            {% for comment in post.comments %}
+                {% if not comment.parent_id %}
+                <div class="comment" id="comment-{{ comment.id }}">
+                    <div class="comment-meta">
+                        <a href="{{ url_for('profile', user_id=comment.author.id) }}">{{ comment.author.username }}</a> 发表于 {{ comment.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {% if session.user_id %}
+                        <span class="reply-link" onclick="toggleReplyForm({{ comment.id }})">回复</span>
+                        {% endif %}
+                    </div>
+                    <div class="comment-content">
+                        {{ comment.content|replace('\n', '<br>')|safe }}
+                    </div>
+                    
+                    <!-- 回复表单 -->
+                    {% if session.user_id %}
+                    <div id="reply-form-{{ comment.id }}" class="reply-form">
+                        <form action="{{ url_for('add_comment', post_id=post.id) }}" method="POST">
+                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                            <div class="form-group">
+                                <textarea name="content" placeholder="回复 {{ comment.author.username }}..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn">发表回复</button>
+                            <button type="button" class="btn btn-secondary" onclick="toggleReplyForm({{ comment.id }})">取消</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 显示对该评论的回复 -->
+                    {% for reply in comment.replies %}
+                    <div class="comment-reply">
+                        <div class="comment-meta">
+                            <a href="{{ url_for('profile', user_id=reply.author.id) }}">{{ reply.author.username }}</a> 回复于 {{ reply.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}
+                            {% if session.user_id %}
+                            <span class="reply-link" onclick="toggleReplyForm({{ reply.id }})">回复</span>
+                            {% endif %}
+                        </div>
+                        <div class="comment-content">
+                            {{ reply.content|replace('\n', '<br>')|safe }}
+                        </div>
+                        
+                        <!-- 对回复的回复表单 -->
+                        {% if session.user_id %}
+                        <div id="reply-form-{{ reply.id }}" class="reply-form">
+                            <form action="{{ url_for('add_comment', post_id=post.id) }}" method="POST">
+                                <input type="hidden" name="parent_id" value="{{ reply.id }}">
+                                <div class="form-group">
+                                    <textarea name="content" placeholder="回复 {{ reply.author.username }}..." required></textarea>
+                                </div>
+                                <button type="submit" class="btn">发表回复</button>
+                                <button type="button" class="btn btn-secondary" onclick="toggleReplyForm({{ reply.id }})">取消</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% else %}
+                <p>暂无评论</p>
+            {% endfor %}
+
+            {% if session.user_id and not session.get('is_muted') %}
+                <form class="comment-form" action="{{ url_for('add_comment', post_id=post.id) }}" method="POST">
+                    <div class="form-group">
+                        <textarea name="content" placeholder="添加评论..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn">发表评论</button>
+                </form>
+            {% elif session.user_id and session.get('is_muted') %}
+                <p class="muted-message">您已被禁言，无法发表评论</p>
+            {% else %}
+                <p><a href="{{ url_for('login') }}">登录</a> 后可以发表评论</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // 主题切换功能
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            fetch('/toggle_dark_mode')
+                .then(response => response.redirected ? window.location.href = response.url : window.location.reload());
+        });
+        
+        // 切换回复表单显示
+        function toggleReplyForm(commentId) {
+            const form = document.getElementById('reply-form-' + commentId);
+            if (form.style.display === 'block') {
+                form.style.display = 'none';
+            } else {
+                // 隐藏所有回复表单
+                const forms = document.querySelectorAll('.reply-form');
+                forms.forEach(f => f.style.display = 'none');
+                
+                // 显示当前表单
+                form.style.display = 'block';
+            }
+        }
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

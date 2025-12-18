@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ session.get('dark_mode', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑文章 - {{ post.title }} - LCM's Blog</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">LCM's Blog</a></h1>
+            <div class="nav-links">
+                <button class="theme-toggle">
+                    {% if session.get('dark_mode', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card form-container">
+            <h2>编辑文章</h2>
+            <form method="POST">
+                <div class="form-group">
+                    <label for="title" class="form-label">文章标题:</label>
+                    <input type="text" id="title" name="title" class="form-control" value="{{ post.title }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="author" class="form-label">作者:</label>
+                    <div class="author-info">
+                        {{ post.author.username }} (不可更改)
+                    </div>
+                    <input type="hidden" id="author" name="author" value="{{ post.author.username }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="content" class="form-label">文章内容:</label>
+                    <textarea id="content" name="content" class="form-control" required>{{ post.content }}</textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-warning">更新文章</button>
+                <a href="{{ url_for('post', post_id=post.id) }}" class="btn">查看文章</a>
+                <a href="{{ url_for('home') }}" class="btn btn-secondary">取消</a>
+            </form>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

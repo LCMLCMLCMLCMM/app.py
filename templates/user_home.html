@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ request.cookies.get('theme', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user.username }} 的主页 - 我的个人博客</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">我的个人博客</a> - {{ user.username }} 的主页</h1>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <span>欢迎, {{ session.username }}!</span>
+                    {% if session.role == 'master' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">站长面板</a>
+                    {% elif session.role == 'admin' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">管理员面板</a>
+                    {% endif %}
+                    <a href="{{ url_for('user_profile') }}" class="btn">个人资料</a>
+                    <a href="{{ url_for('logout') }}" class="btn">登出</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn">登录</a>
+                    <a href="{{ url_for('register') }}" class="btn">注册</a>
+                {% endif %}
+                <button class="theme-toggle" id="themeToggle">
+                    {% if request.cookies.get('theme', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">用户信息</h2>
+            <p><strong>用户名：</strong> <a href="{{ url_for('profile', user_id=user.id) }}">{{ user.username }}</a></p>
+            <p><strong>用户角色：</strong> 
+                {% if user.role == 'master' %}
+                    站长
+                {% elif user.role == 'admin' %}
+                    管理员
+                {% else %}
+                    普通用户
+                {% endif %}
+            </p>
+            <p><strong>注册时间：</strong> {{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            
+            {% if user.signature %}
+            <p><strong>个性签名：</strong> {{ user.signature }}</p>
+            {% endif %}
+            
+            {% if user.contact_info %}
+            <div>
+                <strong>联系方式：</strong>
+                {% set contact_info = user.contact_info|from_json %}
+                {% for key, value in contact_info.items() %}
+                    {% if value %}
+                    <p style="margin-left: 20px;">
+                        {% if key == 'bilibili' %}B站:{% elif key == 'phone' %}电话:{% elif key == 'email' %}邮箱:{% elif key == 'qq' %}QQ:{% elif key == 'wechat' %}微信:{% elif key == 'weibo' %}微博:{% elif key == 'telegram' %}Telegram:{% elif key == 'youtube' %}YouTube:{% elif key == 'twitter' %}X(Twitter):{% elif key == 'xiaohongshu' %}小红书:{% elif key == 'douyin' %}抖音:{% else %}{{ key }}:{% endif %}
+                        {{ value }}
+                    </p>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="card">
+            <h2 class="section-title">发布的文章</h2>
+            {% if user_posts %}
+                {% for post in user_posts %}
+                <div class="post-summary">
+                    <h3><a href="{{ url_for('post', post_id=post.id) }}">{{ post.title }}</a></h3>
+                    <p class="post-meta">发布时间: {{ post.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p>{{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>该用户尚未发布任何文章。</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // 主题切换功能
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            fetch('/toggle_dark_mode')
+                .then(response => response.redirected ? window.location.href = response.url : window.location.reload());
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

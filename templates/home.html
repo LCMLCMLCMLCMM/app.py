@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ request.cookies.get('theme', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCM's Blog</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        
+        .hero-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .hero-subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        
+        .stats-container {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .featured-posts {
+            margin: 2rem 0;
+        }
+        
+        .post-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .post-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .post-card .post-title {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-card .post-meta {
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+        }
+        
+        .post-card .post-excerpt {
+            flex-grow: 1;
+            margin-bottom: 1rem;
+        }
+        
+        .search-container {
+            margin: 1.5rem 0;
+        }
+        
+        .welcome-banner {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .welcome-text h2 {
+            margin: 0;
+        }
+        
+        .welcome-text p {
+            margin: 0.5rem 0 0 0;
+            color: var(--text-secondary);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2rem;
+            }
+            
+            .hero-subtitle {
+                font-size: 1rem;
+            }
+            
+            .stats-container {
+                gap: 1rem;
+            }
+            
+            .stat-number {
+                font-size: 1.5rem;
+            }
+            
+            .welcome-banner {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .action-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card">LCM's Blog</h1>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <span>欢迎, {{ session.username }}!</span>
+                    {% if session.role == 'master' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">站长面板</a>
+                    {% elif session.role == 'admin' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">管理员面板</a>
+                    {% endif %}
+                    <a href="{{ url_for('user_profile') }}" class="btn">个人资料</a>
+                    <a href="{{ url_for('logout') }}" class="btn">登出</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn">登录</a>
+                    <a href="{{ url_for('register') }}" class="btn">注册</a>
+                {% endif %}
+                <button class="theme-toggle" id="themeToggle">
+                    {% if request.cookies.get('theme', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="container">
+                <h1 class="hero-title">欢迎来到 LCM's Blog</h1>
+                <p class="hero-subtitle">一个分享技术、生活和创意的地方</p>
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-number">{{ all_posts|length }}</div>
+                        <div class="stat-label">文章</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ users_count or 0 }}</div>
+                        <div class="stat-label">用户</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ comments_count or 0 }}</div>
+                        <div class="stat-label">评论</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Welcome Banner -->
+        {% if session.user_id %}
+        <div class="welcome-banner">
+            <div class="welcome-text">
+                <h2>你好，{{ session.username }}！</h2>
+                <p>很高兴再次见到你</p>
+            </div>
+            <div class="action-buttons">
+                {% if not session.get('is_muted') %}
+                    <a href="{{ url_for('create_post') }}" class="btn btn-success">写新文章</a>
+                {% endif %}
+                <a href="{{ url_for('user_profile') }}" class="btn btn-outline">个人资料</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="welcome-banner">
+            <div class="welcome-text">
+                <h2>欢迎来到我们的社区！</h2>
+                <p>加入我们，分享你的想法和经验</p>
+            </div>
+            <div class="action-buttons">
+                <a href="{{ url_for('register') }}" class="btn btn-success">立即注册</a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline">用户登录</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 搜索栏 -->
+        <div class="card search-container">
+            <form method="GET" action="{{ url_for('search') }}">
+                <div class="form-group">
+                    <input type="text" class="form-control" name="q" placeholder="搜索文章或用户..." value="{{ request.args.get('q', '') }}">
+                    <button type="submit" class="btn btn-primary" style="margin-top: 10px;">搜索</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 更新日志弹窗 -->
+        {% if latest_update_log and not request.cookies.get('update_log_' + latest_update_log.id|string + '_read') %}
+        <div class="modal" id="updateLogModal" style="display:block;">
+            <div class="modal-content card">
+                <span class="close" onclick="closeUpdateLogModal({{ latest_update_log.id }})">&times;</span>
+                <h2>{{ latest_update_log.title }}</h2>
+                <p><strong>发布时间:</strong> {{ latest_update_log.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                <div class="post-content">
+                    {{ latest_update_log.content|replace('\n', '<br>')|safe }}
+                </div>
+                <button class="btn" onclick="closeUpdateLogModal({{ latest_update_log.id }})">我知道了</button>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- 精选文章 -->
+        <div class="featured-posts">
+            <h2 class="section-title">最新文章</h2>
+            {% if all_posts %}
+            <div class="post-grid">
+                {% for post in all_posts[:6] %}
+                <div class="card post post-card">
+                    <h3 class="post-title">
+                        <a href="{{ url_for('post', post_id=post.id) }}">
+                            {{ post.title }}
+                        </a>
+                    </h3>
+                    <div class="post-meta">
+                        作者: <a href="{{ url_for('profile', user_id=post.author.id) }}">{{ post.author.username }}</a> | 
+                        {{ post.date_posted.strftime('%Y-%m-%d') }}
+                    </div>
+                    <div class="post-excerpt">
+                        <p>{{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}</p>
+                    </div>
+                    <a href="{{ url_for('post', post_id=post.id) }}" class="btn btn-outline">查看详情</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card">
+                <p>还没有文章，{% if session.user_id and not session.get('is_muted') %}<a href="{{ url_for('create_post') }}">创建第一篇文章</a>{% else %}请登录后创建文章{% endif %}吧！</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 查看所有文章 -->
+        {% if all_posts and all_posts|length > 6 %}
+        <div class="card" style="text-align: center; margin-top: 2rem;">
+            <a href="#" class="btn btn-primary">查看更多文章</a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        function closeUpdateLogModal(postId) {
+            // 使用 AJAX 标记为已读并关闭模态框
+            fetch(`/mark_update_log_read/${postId}`)
+                .then(() => {
+                    document.getElementById('updateLogModal').style.display = 'none';
+                });
+        }
+        
+        function reportItem(form) {
+            const reason = prompt("请输入举报原因:");
+            if (reason) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'reason';
+                input.value = reason;
+                form.appendChild(input);
+                form.submit();
+            }
+        }
+        
+        // 主题切换功能
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            fetch('/toggle_dark_mode')
+                .then(response => response.redirected ? window.location.href = response.url : window.location.reload());
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

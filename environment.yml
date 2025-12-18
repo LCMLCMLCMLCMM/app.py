@@ -1,0 +1,10 @@
+name: blog-env
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3.8
+  - pip
+  - pip:
+    - Flask==2.3.3
+    - Flask-SQLAlchemy==3.0.5

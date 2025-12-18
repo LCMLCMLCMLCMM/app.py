@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ session.get('dark_mode', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - LCM's Blog</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <!-- reCAPTCHA -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">LCM's Blog</a></h1>
+            <div class="nav-links">
+                <button class="theme-toggle">
+                    {% if session.get('dark_mode', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="card form-container">
+            <h2 style="text-align: center;">用户注册</h2>
+            <div id="networkWarning" class="flash-message warning" style="display: none;">
+                检测到网络连接问题，部分功能可能受限。如需完整功能，请考虑使用其他网络环境。
+            </div>
+            
+            <form method="POST" id="registerForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">昵称:</label>
+                    <input type="text" id="username" name="username" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="identifier" class="form-label">邮箱或手机号:</label>
+                    <input type="text" id="identifier" name="identifier" class="form-control" required>
+                </div>
+                
+                <div class="form-group" id="verificationSection" style="display: none;">
+                    <label for="verificationCode" class="form-label">验证码:</label>
+                    <input type="text" id="verificationCode" name="verificationCode" class="form-control">
+                    <button type="button" id="resendCodeButton" class="btn" style="margin-top: 5px;">重新发送</button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">密码:</label>
+                    <input type="password" id="password" name="password" class="form-control" required>
+                    <small>密码必须包含字母和数字，不少于6位</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="age" class="form-label">年龄:</label>
+                    <input type="number" id="age" name="age" class="form-control" min="1" max="120">
+                </div>
+                
+                <div class="form-group">
+                    <label for="gender" class="form-label">性别:</label>
+                    <select id="gender" name="gender" class="form-control">
+                        <option value="">请选择</option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="birthday" class="form-label">生日:</label>
+                    <input type="date" id="birthday" name="birthday" class="form-control">
+                </div>
+                
+                <!-- reCAPTCHA widget -->
+                <div class="form-group">
+                    <div class="g-recaptcha" data-sitekey="6LdvPC8sAAAAAB4gOb7QFb4h-0mdzGmVtbK_Id-_"></div>
+                </div>
+                
+                <h3 style="margin-top: 20px;">联系方式 (至少填写一项)</h3>
+                
+                <div class="form-group">
+                    <label for="bilibili" class="form-label">哔哩哔哩 UID:</label>
+                    <input type="text" id="bilibili" name="bilibili" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone" class="form-label">电话:</label>
+                    <input type="text" id="phone" name="phone" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">邮箱:</label>
+                    <input type="email" id="email" name="email" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="qq" class="form-label">QQ:</label>
+                    <input type="text" id="qq" name="qq" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="wechat" class="form-label">微信:</label>
+                    <input type="text" id="wechat" name="wechat" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="weibo" class="form-label">微博:</label>
+                    <input type="text" id="weibo" name="weibo" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="telegram" class="form-label">Telegram:</label>
+                    <input type="text" id="telegram" name="telegram" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="youtube" class="form-label">YouTube:</label>
+                    <input type="text" id="youtube" name="youtube" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="twitter" class="form-label">Twitter/X:</label>
+                    <input type="text" id="twitter" name="twitter" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="xiaohongshu" class="form-label">小红书:</label>
+                    <input type="text" id="xiaohongshu" name="xiaohongshu" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="douyin" class="form-label">抖音:</label>
+                    <input type="text" id="douyin" name="douyin" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="other" class="form-label">其他:</label>
+                    <input type="text" id="other" name="other" class="form-control">
+                </div>
+                
+                <button type="submit" class="btn" id="registerButton">注册</button>
+                
+                <!-- Google Register Button -->
+                <div style="margin-top: 15px; text-align: center;">
+                    <button type="button" class="btn" id="googleRegisterButton" style="background-color: #4285F4; color: white;">
+                        使用 Google 注册
+                    </button>
+                </div>
+                
+                <!-- Fallback option for network issues -->
+                <div id="fallbackOption" style="margin-top: 15px; text-align: center; display: none;">
+                    <p>网络受限？<a href="#" id="useFallbackAuth">使用备用注册方式</a></p>
+                </div>
+            </form>
+            
+            <div class="form-footer">
+                <p>已有账户? <a href="{{ url_for('login') }}">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    
+    <script>
+        // Wait for DOM to be loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check Firebase availability
+            checkFirebaseAvailability()
+                .then(isAvailable => {
+                    if (!isAvailable) {
+                        // Show fallback option
+                        document.getElementById('networkWarning').style.display = 'block';
+                        document.getElementById('fallbackOption').style.display = 'block';
+                        
+                        // Setup fallback registration handler
+                        document.getElementById('useFallbackAuth').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            setupFallbackRegistration();
+                        });
+                    } else {
+                        // Initialize Firebase normally
+                        initializeFirebaseAuth();
+                    }
+                })
+                .catch(err => {
+                    console.error('Error checking Firebase availability:', err);
+                    document.getElementById('networkWarning').style.display = 'block';
+                    document.getElementById('fallbackOption').style.display = 'block';
+                    
+                    // Setup fallback registration handler
+                    document.getElementById('useFallbackAuth').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        setupFallbackRegistration();
+                    });
+                });
+
+            // Function to check Firebase availability
+            function checkFirebaseAvailability() {
+                return new Promise((resolve) => {
+                    if (typeof firebase === 'undefined') {
+                        console.log('Firebase SDK not loaded');
+                        resolve(false);
+                        return;
+                    }
+
+                    // Try to initialize Firebase
+                    try {
+                        const firebaseConfig = {
+                            apiKey: "AIzaSyABWO24AMuzq3JJOgAODs3IoKB3lmB7ayI",
+                            authDomain: "lcm-s-blog.firebaseapp.com",
+                            projectId: "lcm-s-blog",
+                            storageBucket: "lcm-s-blog.firebasestorage.app",
+                            messagingSenderId: "862212909236",
+                            appId: "1:862212909236:web:088bd36f52fbe1aec54fe1",
+                            measurementId: "G-WT080SMPL8"
+                        };
+
+                        firebase.initializeApp(firebaseConfig);
+                        resolve(true);
+                    } catch (error) {
+                        console.error('Firebase initialization failed:', error);
+                        resolve(false);
+                    }
+                });
+            }
+
+            // Initialize Firebase authentication
+            function initializeFirebaseAuth() {
+                const auth = firebase.auth();
+                let confirmationResult;
+
+                // Handle form submission
+                document.getElementById('registerForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    // Get reCAPTCHA response
+                    const recaptchaResponse = grecaptcha.getResponse();
+                    if (!recaptchaResponse) {
+                        alert('请完成 reCAPTCHA 验证');
+                        return;
+                    }
+                    
+                    const username = document.getElementById('username').value;
+                    const identifier = document.getElementById('identifier').value;
+                    const password = document.getElementById('password').value;
+                    const age = document.getElementById('age').value;
+                    const gender = document.getElementById('gender').value;
+                    const birthday = document.getElementById('birthday').value;
+                    const verificationCode = document.getElementById('verificationCode').value;
+                    
+                    // Validate password
+                    if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+                        alert('密码必须包含字母和数字，不少于6位');
+                        return;
+                    }
+                    
+                    // Collect contact info
+                    const contactFields = [
+                        'bilibili', 'phone', 'email', 'qq', 'wechat', 'weibo',
+                        'telegram', 'youtube', 'twitter', 'xiaohongshu', 'douyin', 'other'
+                    ];
+                    
+                    const contactInfo = {};
+                    contactFields.forEach(field => {
+                        const value = document.getElementById(field).value.trim();
+                        if (value) {
+                            contactInfo[field] = value;
+                        }
+                    });
+                    
+                    // Validate contact info
+                    if (Object.keys(contactInfo).length === 0) {
+                        alert('请至少填写一种联系方式');
+                        return;
+                    }
+                    
+                    // Handle phone verification if needed
+                    if (!identifier.includes('@') && verificationCode) {
+                        // Verify phone number with code
+                        if (confirmationResult) {
+                            confirmationResult.confirm(verificationCode).then((result) => {
+                                // Phone verification successful
+                                const user = result.user;
+                                createUserInBackend(user.uid, username, identifier, password, age, gender, birthday, contactInfo, recaptchaResponse);
+                            }).catch((error) => {
+                                console.error('Phone verification error:', error);
+                                alert('手机验证失败：' + error.message);
+                            });
+                        } else {
+                            alert('请先获取验证码');
+                        }
+                        return;
+                    }
+                    
+                    // Handle email registration
+                    if (identifier.includes('@')) {
+                        // Create user with email and password
+                        auth.createUserWithEmailAndPassword(identifier, password)
+                            .then((userCredential) => {
+                                // Successfully created user in Firebase
+                                const user = userCredential.user;
+                                createUserInBackend(user.uid, username, identifier, password, age, gender, birthday, contactInfo, recaptchaResponse);
+                            })
+                            .catch((error) => {
+                                const errorCode = error.code;
+                                const errorMessage = error.message;
+                                console.error('Firebase Auth Error:', errorCode, errorMessage);
+                                alert('注册失败：' + errorMessage);
+                            });
+                    } else {
+                        // Send SMS verification code
+                        sendSMSVerification(identifier);
+                    }
+                });
+                
+                // Handle Google Register
+                document.getElementById('googleRegisterButton').addEventListener('click', function() {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    auth.signInWithPopup(provider)
+                        .then((result) => {
+                            const user = result.user;
+                            const username = user.displayName || user.email.split('@')[0];
+                            
+                            // Collect basic contact info
+                            const contactInfo = {
+                                email: user.email
+                            };
+                            
+                            // Send to backend
+                            fetch('/firebase-register', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    uid: user.uid,
+                                    username: username,
+                                    identifier: user.email,
+                                    password: '', // No password for Google auth
+                                    age: null,
+                                    gender: null,
+                                    birthday: null,
+                                    contact_info: contactInfo,
+                                    recaptcha: 'GOOGLE_AUTH' // No recaptcha for Google auth
+                                })
+                            }).then(response => {
+                                if (response.ok) {
+                                    window.location.href = '/';
+                                } else {
+                                    response.text().then(text => {
+                                        alert('注册失败：' + text);
+                                    });
+                                }
+                            }).catch(error => {
+                                console.error('Error:', error);
+                                alert('注册失败，请重试');
+                            });
+                        })
+                        .catch((error) => {
+                            console.error('Google Auth Error:', error);
+                            alert('Google 注册失败：' + error.message);
+                        });
+                });
+                
+                // Function to send SMS verification
+                function sendSMSVerification(phoneNumber) {
+                    const recaptchaResponse = grecaptcha.getResponse();
+                    if (!recaptchaResponse) {
+                        alert('请完成 reCAPTCHA 验证');
+                        return;
+                    }
+                    
+                    const appVerifier = new firebase.auth.RecaptchaVerifier('registerButton', {
+                        'size': 'invisible'
+                    });
+                    
+                    auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+                        .then((result) => {
+                            confirmationResult = result;
+                            document.getElementById('verificationSection').style.display = 'block';
+                            alert('验证码已发送到您的手机');
+                        })
+                        .catch((error) => {
+                            console.error('Phone verification error:', error);
+                            alert('发送验证码失败：' + error.message);
+                        });
+                }
+                
+                // Resend verification code
+                document.getElementById('resendCodeButton').addEventListener('click', function() {
+                    const phoneNumber = document.getElementById('identifier').value;
+                    if (!phoneNumber || phoneNumber.includes('@')) {
+                        alert('请输入有效的手机号码');
+                        return;
+                    }
+                    sendSMSVerification(phoneNumber);
+                });
+                
+                // Function to create user in backend
+                function createUserInBackend(uid, username, identifier, password, age, gender, birthday, contactInfo, recaptcha) {
+                    fetch('/firebase-register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            uid: uid,
+                            username: username,
+                            identifier: identifier,
+                            password: password,
+                            age: age ? parseInt(age) : null,
+                            gender: gender || null,
+                            birthday: birthday || null,
+                            contact_info: contactInfo,
+                            recaptcha: recaptcha
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            window.location.href = '/login';
+                        } else {
+                            // Delete Firebase user if backend registration fails
+                            const user = auth.currentUser;
+                            if (user) {
+                                user.delete().then(() => {
+                                    console.log('Firebase user deleted due to backend registration failure');
+                                }).catch((error) => {
+                                    console.error('Error deleting Firebase user:', error);
+                                });
+                            }
+                            
+                            response.text().then(text => {
+                                alert('注册失败：' + text);
+                            });
+                        }
+                    }).catch(error => {
+                        console.error('Error:', error);
+                        alert('注册失败，请重试');
+                    });
+                }
+            }
+
+            // Setup fallback registration (when Firebase is not available)
+            function setupFallbackRegistration() {
+                // Hide Firebase-specific elements
+                document.getElementById('googleRegisterButton').parentElement.style.display = 'none';
+                document.getElementById('fallbackOption').style.display = 'none';
+                
+                // Update form submission handler for fallback
+                document.getElementById('registerForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    handleFallbackRegistration();
+                });
+                
+                alert('已切换到备用注册方式。请注意，此方式安全性较低，建议在网络条件改善后使用标准注册流程。');
+            }
+
+            // Handle fallback registration
+            function handleFallbackRegistration() {
+                // Get form values
+                const username = document.getElementById('username').value;
+                const identifier = document.getElementById('identifier').value;
+                const password = document.getElementById('password').value;
+                const age = document.getElementById('age').value;
+                const gender = document.getElementById('gender').value;
+                const birthday = document.getElementById('birthday').value;
+                
+                // Validate password
+                if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+                    alert('密码必须包含字母和数字，不少于6位');
+                    return;
+                }
+                
+                // Collect contact info
+                const contactFields = [
+                    'bilibili', 'phone', 'email', 'qq', 'wechat', 'weibo',
+                    'telegram', 'youtube', 'twitter', 'xiaohongshu', 'douyin', 'other'
+                ];
+                
+                const contactInfo = {};
+                contactFields.forEach(field => {
+                    const value = document.getElementById(field).value.trim();
+                    if (value) {
+                        contactInfo[field] = value;
+                    }
+                });
+                
+                // Validate contact info
+                if (Object.keys(contactInfo).length === 0) {
+                    alert('请至少填写一种联系方式');
+                    return;
+                }
+                
+                // Get reCAPTCHA response
+                const recaptchaResponse = grecaptcha.getResponse();
+                if (!recaptchaResponse) {
+                    alert('请完成 reCAPTCHA 验证');
+                    return;
+                }
+                
+                // Send to backend with fallback flag
+                fetch('/fallback-register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        identifier: identifier,
+                        password: password,
+                        age: age ? parseInt(age) : null,
+                        gender: gender || null,
+                        birthday: birthday || null,
+                        contact_info: contactInfo,
+                        recaptcha: recaptchaResponse
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        alert('注册成功！请登录。');
+                        window.location.href = '/login';
+                    } else {
+                        response.text().then(text => {
+                            alert('注册失败：' + text);
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error:', error);
+                    alert('注册失败，请重试');
+                });
+            }
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

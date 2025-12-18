@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ session.get('dark_mode', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - LCM's Blog</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <!-- reCAPTCHA -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">LCM's Blog</a></h1>
+            <div class="nav-links">
+                <button class="theme-toggle">
+                    {% if session.get('dark_mode', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="card form-container">
+            <h2 style="text-align: center;">用户登录</h2>
+            <div id="networkWarning" class="flash-message warning" style="display: none;">
+                检测到网络连接问题，部分功能可能受限。如需完整功能，请考虑使用其他网络环境。
+            </div>
+            
+            <form method="POST" id="loginForm">
+                <div class="form-group">
+                    <label for="identifier" class="form-label">邮箱或手机号:</label>
+                    <input type="text" id="identifier" name="identifier" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">密码:</label>
+                    <input type="password" id="password" name="password" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="remember" id="remember"> 记住我
+                    </label>
+                </div>
+                
+                <!-- reCAPTCHA widget -->
+                <div class="form-group">
+                    <div class="g-recaptcha" data-sitekey="6LdvPC8sAAAAAB4gOb7QFb4h-0mdzGmVtbK_Id-_"></div>
+                </div>
+                
+                <button type="submit" class="btn">登录</button>
+                
+                <!-- Google Login Button -->
+                <div style="margin-top: 15px; text-align: center;">
+                    <button type="button" class="btn" id="googleLoginButton" style="background-color: #4285F4; color: white;">
+                        使用 Google 登录
+                    </button>
+                </div>
+                
+                <!-- Fallback option for network issues -->
+                <div id="fallbackOption" style="margin-top: 15px; text-align: center; display: none;">
+                    <p>网络受限？<a href="#" id="useFallbackAuth">使用备用登录方式</a></p>
+                </div>
+            </form>
+            
+            <div class="form-footer">
+                <p>没有账户? <a href="{{ url_for('register') }}">立即注册</a></p>
+                <p><a href="{{ url_for('reset_password') }}">忘记密码?</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    
+    <script>
+        // Wait for DOM to be loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check Firebase availability
+            checkFirebaseAvailability()
+                .then(isAvailable => {
+                    if (!isAvailable) {
+                        // Show fallback option
+                        document.getElementById('networkWarning').style.display = 'block';
+                        document.getElementById('fallbackOption').style.display = 'block';
+                        
+                        // Setup fallback login handler
+                        document.getElementById('useFallbackAuth').addEventListener('click', function(e) {
+                            e.preventDefault();
+                            setupFallbackLogin();
+                        });
+                    } else {
+                        // Initialize Firebase normally
+                        initializeFirebaseAuth();
+                    }
+                })
+                .catch(err => {
+                    console.error('Error checking Firebase availability:', err);
+                    document.getElementById('networkWarning').style.display = 'block';
+                    document.getElementById('fallbackOption').style.display = 'block';
+                    
+                    // Setup fallback login handler
+                    document.getElementById('useFallbackAuth').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        setupFallbackLogin();
+                    });
+                });
+
+            // Function to check Firebase availability
+            function checkFirebaseAvailability() {
+                return new Promise((resolve) => {
+                    if (typeof firebase === 'undefined') {
+                        console.log('Firebase SDK not loaded');
+                        resolve(false);
+                        return;
+                    }
+
+                    // Try to initialize Firebase
+                    try {
+                        const firebaseConfig = {
+                            apiKey: "AIzaSyABWO24AMuzq3JJOgAODs3IoKB3lmB7ayI",
+                            authDomain: "lcm-s-blog.firebaseapp.com",
+                            projectId: "lcm-s-blog",
+                            storageBucket: "lcm-s-blog.firebasestorage.app",
+                            messagingSenderId: "862212909236",
+                            appId: "1:862212909236:web:088bd36f52fbe1aec54fe1",
+                            measurementId: "G-WT080SMPL8"
+                        };
+
+                        firebase.initializeApp(firebaseConfig);
+                        resolve(true);
+                    } catch (error) {
+                        console.error('Firebase initialization failed:', error);
+                        resolve(false);
+                    }
+                });
+            }
+
+            // Initialize Firebase authentication
+            function initializeFirebaseAuth() {
+                const auth = firebase.auth();
+
+                // Handle form submission
+                document.getElementById('loginForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    // Get reCAPTCHA response
+                    const recaptchaResponse = grecaptcha.getResponse();
+                    if (!recaptchaResponse) {
+                        alert('请完成 reCAPTCHA 验证');
+                        return;
+                    }
+                    
+                    const identifier = document.getElementById('identifier').value;
+                    const password = document.getElementById('password').value;
+                    const remember = document.getElementById('remember').checked;
+                    
+                    // Handle email login
+                    if (identifier.includes('@')) {
+                        auth.signInWithEmailAndPassword(identifier, password)
+                            .then((userCredential) => {
+                                // Successfully signed in
+                                const user = userCredential.user;
+                                
+                                // Send to backend for session creation
+                                fetch('/firebase-login', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        uid: user.uid,
+                                        remember: remember,
+                                        recaptcha: recaptchaResponse
+                                    })
+                                }).then(response => {
+                                    if (response.ok) {
+                                        window.location.href = '/';
+                                    } else {
+                                        response.text().then(text => {
+                                            alert('登录失败：' + text);
+                                        });
+                                    }
+                                }).catch(error => {
+                                    console.error('Error:', error);
+                                    alert('登录失败，请重试');
+                                });
+                            })
+                            .catch((error) => {
+                                const errorCode = error.code;
+                                const errorMessage = error.message;
+                                console.error('Firebase Auth Error:', errorCode, errorMessage);
+                                alert('登录失败：' + errorMessage);
+                            });
+                    } else {
+                        // Handle phone login would require additional verification steps
+                        // For now, show an alert
+                        alert('手机号登录暂不支持，请使用邮箱登录或使用备用登录方式');
+                    }
+                });
+                
+                // Handle Google Login
+                document.getElementById('googleLoginButton').addEventListener('click', function() {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    auth.signInWithPopup(provider)
+                        .then((result) => {
+                            const user = result.user;
+                            
+                            // Send to backend for session creation
+                            fetch('/firebase-login', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    uid: user.uid,
+                                    remember: document.getElementById('remember').checked,
+                                    recaptcha: 'GOOGLE_AUTH' // No recaptcha for Google auth
+                                })
+                            }).then(response => {
+                                if (response.ok) {
+                                    window.location.href = '/';
+                                } else {
+                                    response.text().then(text => {
+                                        alert('登录失败：' + text);
+                                    });
+                                }
+                            }).catch(error => {
+                                console.error('Error:', error);
+                                alert('登录失败，请重试');
+                            });
+                        })
+                        .catch((error) => {
+                            console.error('Google Auth Error:', error);
+                            alert('Google 登录失败：' + error.message);
+                        });
+                });
+            }
+
+            // Setup fallback login (when Firebase is not available)
+            function setupFallbackLogin() {
+                // Hide Firebase-specific elements
+                document.getElementById('googleLoginButton').parentElement.style.display = 'none';
+                document.getElementById('fallbackOption').style.display = 'none';
+                
+                // Update form submission handler for fallback
+                document.getElementById('loginForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    handleFallbackLogin();
+                });
+                
+                alert('已切换到备用登录方式。请注意，此方式安全性较低，建议在网络条件改善后使用标准登录流程。');
+            }
+
+            // Handle fallback login
+            function handleFallbackLogin() {
+                // Get form values
+                const identifier = document.getElementById('identifier').value;
+                const password = document.getElementById('password').value;
+                const remember = document.getElementById('remember').checked;
+                
+                // Get reCAPTCHA response
+                const recaptchaResponse = grecaptcha.getResponse();
+                if (!recaptchaResponse) {
+                    alert('请完成 reCAPTCHA 验证');
+                    return;
+                }
+                
+                // Send to backend with fallback flag
+                fetch('/fallback-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        identifier: identifier,
+                        password: password,
+                        remember: remember,
+                        recaptcha: recaptchaResponse
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        response.text().then(text => {
+                            alert('登录失败：' + text);
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error:', error);
+                    alert('登录失败，请重试');
+                });
+            }
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

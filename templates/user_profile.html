@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ request.cookies.get('theme', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人资料 - LCM's Blog</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">LCM's Blog</a> - 个人资料</h1>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}" class="btn btn-outline">返回首页</a>
+                <button class="theme-toggle" id="themeToggle">
+                    {% if request.cookies.get('theme', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="card form-container">
+            <h2 style="text-align: center;">编辑个人资料</h2>
+            <form method="POST">
+                <input type="hidden" name="form_type" value="profile">
+                
+                <div class="form-group">
+                    <label for="username" class="form-label">昵称:</label>
+                    <input type="text" id="username" name="username" class="form-control" value="{{ user.username }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signature" class="form-label">个性签名:</label>
+                    <textarea id="signature" name="signature" class="form-control" rows="3">{{ user.signature }}</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="age" class="form-label">年龄:</label>
+                    <input type="number" id="age" name="age" class="form-control" min="1" max="120" value="{{ user.age or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="gender" class="form-label">性别:</label>
+                    <select id="gender" name="gender" class="form-control">
+                        <option value="">请选择</option>
+                        <option value="male" {% if user.gender == 'male' %}selected{% endif %}>男</option>
+                        <option value="female" {% if user.gender == 'female' %}selected{% endif %}>女</option>
+                        <option value="other" {% if user.gender == 'other' %}selected{% endif %}>其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="birthday" class="form-label">生日:</label>
+                    <input type="date" id="birthday" name="birthday" class="form-control" value="{% if user.birthday %}{{ user.birthday.strftime('%Y-%m-%d') }}{% endif %}">
+                </div>
+                
+                <h3 style="margin-top: 20px;">联系方式</h3>
+                
+                <div class="form-group">
+                    <label for="bilibili" class="form-label">哔哩哔哩 UID:</label>
+                    <input type="text" id="bilibili" name="bilibili" class="form-control" value="{{ contact_info.bilibili or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone" class="form-label">电话:</label>
+                    <input type="text" id="phone" name="phone" class="form-control" value="{{ contact_info.phone or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">邮箱:</label>
+                    <input type="email" id="email" name="email" class="form-control" value="{{ contact_info.email or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="qq" class="form-label">QQ:</label>
+                    <input type="text" id="qq" name="qq" class="form-control" value="{{ contact_info.qq or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="wechat" class="form-label">微信:</label>
+                    <input type="text" id="wechat" name="wechat" class="form-control" value="{{ contact_info.wechat or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="weibo" class="form-label">微博:</label>
+                    <input type="text" id="weibo" name="weibo" class="form-control" value="{{ contact_info.weibo or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="telegram" class="form-label">Telegram:</label>
+                    <input type="text" id="telegram" name="telegram" class="form-control" value="{{ contact_info.telegram or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="youtube" class="form-label">YouTube:</label>
+                    <input type="text" id="youtube" name="youtube" class="form-control" value="{{ contact_info.youtube or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="twitter" class="form-label">Twitter/X:</label>
+                    <input type="text" id="twitter" name="twitter" class="form-control" value="{{ contact_info.twitter or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="xiaohongshu" class="form-label">小红书:</label>
+                    <input type="text" id="xiaohongshu" name="xiaohongshu" class="form-control" value="{{ contact_info.xiaohongshu or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="douyin" class="form-label">抖音:</label>
+                    <input type="text" id="douyin" name="douyin" class="form-control" value="{{ contact_info.douyin or '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="other" class="form-label">其他:</label>
+                    <input type="text" id="other" name="other" class="form-control" value="{{ contact_info.other or '' }}">
+                </div>
+                
+                <button type="submit" class="btn">更新资料</button>
+            </form>
+            
+            <hr style="margin: 30px 0;">
+            
+            <h3>修改密码</h3>
+            <form method="POST">
+                <input type="hidden" name="form_type" value="password">
+                
+                <div class="form-group">
+                    <label for="new_password" class="form-label">新密码:</label>
+                    <input type="password" id="new_password" name="new_password" class="form-control" required>
+                    <small>密码必须包含字母和数字，不少于6位</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirm_password" class="form-label">确认新密码:</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+                </div>
+                
+                <button type="submit" class="btn">修改密码</button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            fetch('/toggle_dark_mode')
+                .then(response => response.redirected ? window.location.href = response.url : window.location.reload());
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="{{ request.cookies.get('theme', 'light') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索结果 - 我的个人博客</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="container header-content">
+            <h1 class="floating-card"><a href="{{ url_for('home') }}">我的个人博客</a> - 搜索结果</h1>
+            <div class="nav-links">
+                {% if session.user_id %}
+                    <span>欢迎, {{ session.username }}!</span>
+                    {% if session.role == 'master' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">站长面板</a>
+                    {% elif session.role == 'admin' %}
+                        <a href="{{ url_for('admin_panel') }}" class="btn">管理员面板</a>
+                    {% endif %}
+                    <a href="{{ url_for('user_profile') }}" class="btn">个人资料</a>
+                    <a href="{{ url_for('logout') }}" class="btn">登出</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn">登录</a>
+                    <a href="{{ url_for('register') }}" class="btn">注册</a>
+                {% endif %}
+                <button class="theme-toggle" id="themeToggle">
+                    {% if request.cookies.get('theme', 'light') == 'light' %}深色模式{% else %}浅色模式{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card" style="margin-bottom: 20px;">
+            <form method="GET" action="{{ url_for('search') }}">
+                <div class="form-group">
+                    <input type="text" class="form-control" name="q" placeholder="搜索文章或用户..." value="{{ query }}">
+                    <button type="submit" class="btn btn-primary" style="margin-top: 10px;">搜索</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message success">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message error">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <h2 class="section-title">搜索结果： "{{ query }}"</h2>
+        
+        {% if posts %}
+        <h3>文章结果</h3>
+        {% for post in posts %}
+        <div class="card post">
+            <h2 class="post-title">
+                <a href="{{ url_for('post', post_id=post.id) }}">
+                    {{ post.title }}
+                </a>
+            </h2>
+            <div class="post-meta">
+                作者: <a href="{{ url_for('profile', user_id=post.author.id) }}">{{ post.author.username }}</a> | 发布时间: {{ post.date_posted.strftime('%Y-%m-%d %H:%M:%S') }}
+            </div>
+            <div class="post-excerpt">
+                <p>{{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}</p>
+            </div>
+            <a href="{{ url_for('post', post_id=post.id) }}" class="btn">查看详情</a>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p>未找到相关文章。</p>
+        {% endif %}
+        
+        {% if users %}
+        <h3>用户结果</h3>
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>用户名</th>
+                        <th>角色</th>
+                        <th>注册时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td><a href="{{ url_for('profile', user_id=user.id) }}">{{ user.username }}</a></td>
+                        <td>
+                            {% if user.role == 'master' %}
+                                <span class="status-badge status-active">站长</span>
+                            {% elif user.role == 'admin' %}
+                                <span class="status-badge status-active">管理员</span>
+                            {% else %}
+                                <span class="status-badge status-muted">普通用户</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>未找到相关用户。</p>
+        {% endif %}
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // 主题切换功能
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            fetch('/toggle_dark_mode')
+                .then(response => response.redirected ? window.location.href = response.url : window.location.reload());
+        });
+    </script>
+    
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid var(--border-color); color: var(--text-secondary);">
+        <p>COPYRIGHT LCM_MC 2025</p>
+    </footer>
+</body>
+</html>
