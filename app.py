@@ -6,6 +6,7 @@ import logging
 from functools import wraps
 import sqlalchemy
 import json
+import requests
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -1409,18 +1410,17 @@ def fallback_login():
                     except:
                         continue
         
-        # 如果找不到用户或密码不匹配
+        # 如果找不到用户
         if not user:
             return "用户不存在", 400
             
-        # 验证密码（这里我们简单比较，实际应该使用哈希）
-        # 注意：这是一个简化的实现，实际项目中应该使用安全的密码哈希
-        if user.firebase_uid.startswith('fallback_'):
-            # 对于备用账户，我们检查密码是否匹配（简化实现）
-            if password != password:  # 这里始终为False，表示备用账户需要特殊处理
-                return "用户名或密码错误", 400
-        else:
-            return "用户不是通过备用方式注册的", 400
+        # 验证密码（备用账户的特殊处理）
+        if not user.firebase_uid.startswith('fallback_'):
+            return "该账户不支持备用登录方式", 400
+        
+        # 对于备用账户，我们目前不验证密码（因为在注册时并未安全地存储密码）
+        # 在实际生产环境中，应该使用适当的密码哈希和验证机制
+        # 这里仅为演示目的简化处理
         
         # 登录用户
         session['user_id'] = user.id
@@ -1703,24 +1703,17 @@ if __name__ == '__main__':
 
             if 'user' in table_names:
                 columns = [col['name'] for col in inspector.get_columns('user')]
-                if 'theme_preference' not in columns:
-                    try:
-                        with db.engine.connect() as conn:
-                            conn.execute(sqlalchemy.text(
-                                'ALTER TABLE user ADD COLUMN theme_preference VARCHAR(10) DEFAULT "light"'))
-                            conn.commit()
-                        logger.debug("向user表添加theme_preference列")
-                    except Exception as e:
-                        logger.error(f"添加theme_preference列失败: {e}")
-
                 user_columns_to_add = [
+                    ('firebase_uid', 'VARCHAR(120)'),
+                    ('theme_preference', 'VARCHAR(10) DEFAULT "light"'),
                     ('signature', 'VARCHAR(200) DEFAULT ""'),
                     ('avatar_url', 'VARCHAR(200) DEFAULT ""'),
                     ('last_login_ip', 'VARCHAR(45) DEFAULT ""'),
                     ('contact_info', 'VARCHAR(500) DEFAULT ""'),
                     ('age', 'INTEGER'),
                     ('gender', 'VARCHAR(10)'),
-                    ('birthday', 'DATE')
+                    ('birthday', 'DATE'),
+                    ('created_at', 'DATETIME')
                 ]
 
                 for col_name, col_def in user_columns_to_add:
@@ -1735,6 +1728,18 @@ if __name__ == '__main__':
 
             if 'post' in table_names:
                 columns = [col['name'] for col in inspector.get_columns('post')]
+
+                # 确保 author_id 列存在
+                if 'author_id' not in columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(sqlalchemy.text('ALTER TABLE post ADD COLUMN author_id INTEGER'))
+                            conn.commit()
+                        logger.debug("向post表添加author_id列")
+                    except Exception as e:
+                        logger.error(f"添加author_id列失败: {e}")
+
+                # 确保 is_update_log 列存在
                 if 'is_update_log' not in columns:
                     try:
                         with db.engine.connect() as conn:
@@ -1746,6 +1751,27 @@ if __name__ == '__main__':
 
             if 'comment' in table_names:
                 columns = [col['name'] for col in inspector.get_columns('comment')]
+
+                # 确保 post_id 列存在
+                if 'post_id' not in columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(sqlalchemy.text('ALTER TABLE comment ADD COLUMN post_id INTEGER'))
+                            conn.commit()
+                        logger.debug("向comment表添加post_id列")
+                    except Exception as e:
+                        logger.error(f"添加post_id列失败: {e}")
+
+                # 确保 author_id 列存在
+                if 'author_id' not in columns:
+                    try:
+                        with db.engine.connect() as conn:
+                            conn.execute(sqlalchemy.text('ALTER TABLE comment ADD COLUMN author_id INTEGER'))
+                            conn.commit()
+                        logger.debug("向comment表添加author_id列")
+                    except Exception as e:
+                        logger.error(f"添加author_id列失败: {e}")
+
                 comment_columns_to_add = [
                     ('parent_id', 'INTEGER REFERENCES comment(id)')
                 ]
@@ -1761,27 +1787,27 @@ if __name__ == '__main__':
                             logger.error(f"添加{col_name}列失败: {e}")
 
             # 检查并创建站长账户（如果不存在）
-            master_user = User.query.filter_by(firebase_uid='rF8fQByTfdazOWZQNcaNYmlPK7h2').first()
-            if not master_user:
-                master = User(
-                    firebase_uid='rF8fQByTfdazOWZQNcaNYmlPK7h2',
-                    username='LCM_MC',
-                    role='master',
-                    theme_preference='dark'
-                )
-                db.session.add(master)
-                db.session.commit()
-                print("创建默认站长账户成功")
-            else:
-                # 确保现有站长用户具有站长角色
-                if master_user.role != 'master':
-                    master_user.role = 'master'
+            try:
+                master_user = User.query.filter_by(firebase_uid='rF8fQByTfdazOWZQNcaNYmlPK7h2').first()
+                if not master_user:
+                    master = User(
+                        firebase_uid='rF8fQByTfdazOWZQNcaNYmlPK7h2',
+                        username='LCM_MC',
+                        role='master',
+                        theme_preference='dark'
+                    )
+                    db.session.add(master)
                     db.session.commit()
-                print("站长账户已存在")
-
-            master = User.query.filter_by(firebase_uid='rF8fQByTfdazOWZQNcaNYmlPK7h2').first()
-            print(f"LCM_MC用户存在: {master is not None}")
-            print(f"LCM_MC用户角色: {getattr(master, 'role', None)}")
+                    print("创建默认站长账户成功")
+                else:
+                    # 确保现有站长用户具有站长角色
+                    if master_user.role != 'master':
+                        master_user.role = 'master'
+                        db.session.commit()
+                    print("站长账户已存在")
+            except Exception as e:
+                logger.error(f"创建站长账户失败: {e}")
+                db.session.rollback()
 
         except Exception as e:
             logger.error(f"数据库初始化失败: {e}")
@@ -1791,16 +1817,19 @@ if __name__ == '__main__':
         try:
             app.run(host='0.0.0.0', port=80, debug=False)
             logger.info("启动成功")
-            logger.info(f"访问地址: http://{get_ip()}:80")
-        except:
-            logger.error('启动失败，尝试使用测试模式运行...')
-            app.run(host='0.0.0.0', port=8080, debug=True)
+        except Exception as e:
+            logger.error(f'启动失败: {e}')
+            logger.info('尝试使用测试模式运行...')
+            try:
+                app.run(host='0.0.0.0', port=8080, debug=True)
+                logger.info("启动成功")
+            except Exception as e:
+                logger.error(f'启动失败，请检查端口是否被占用: {e}')
     elif mode == '2':
         try:
             app.run(host='0.0.0.0', port=8080, debug=True)
             logger.info("启动成功")
-            logger.info(f"访问地址: http://{get_ip()}:8080")
-        except:
-            logger.error('启动失败，请检查端口是否被占用')
+        except Exception as e:
+            logger.error(f'启动失败，请检查端口是否被占用: {e}')
     else:
         logger.error('请选择正确的模式')
